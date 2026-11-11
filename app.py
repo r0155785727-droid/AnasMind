@@ -130,27 +130,32 @@ if prompt:
             mime_type=uploaded_file.type
         ))
 
-    # إرسال الطلب مع تبديل تلقائي للنموذج في حالة الضغط أو التوقف
+    # 8. إرسال الطلب واستقبال الرد كلمة بكلمة (Streaming) مع تبديل تلقائي للنموذج عند الضغط
     with st.chat_message("assistant", avatar="logo.png"):
         models_to_try = ["gemini-2.5-flash-lite", "gemini-3.8-flash", "gemini-2.0-flash"]
-        reply_text = None
+        success = False
 
         for model_name in models_to_try:
             try:
-                response = client.models.generate_content(
+                response = client.models.generate_content_stream(
                     model=model_name,
                     contents=contents,
                     config=types.GenerateContentConfig(
                         system_instruction=SYSTEM_INSTRUCTION
                     )
                 )
-                reply_text = response.text
+
+                def stream_generator():
+                    for chunk in response:
+                        if chunk.text:
+                            yield chunk.text
+
+                full_reply = st.write_stream(stream_generator())
+                st.session_state.messages.append({"role": "assistant", "content": full_reply})
+                success = True
                 break
             except Exception:
                 continue
 
-        if reply_text:
-            st.markdown(reply_text)
-            st.session_state.messages.append({"role": "assistant", "content": reply_text})
-        else:
-            st.warning("⚠️ الخوادم مزدحمة جداً الآن، جرب مرة أخرى بعد ثوانٍ.")
+        if not success:
+            st.warning("⚠️ الخوادم مزدحمة حالياً، من فضلك أعد إرسال رسالتك بعد ثوانٍ.")
