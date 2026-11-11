@@ -3,6 +3,40 @@ from google import genai
 from google.genai import types
 
 st.set_page_config(page_title="AnasMind", page_icon="logo.png", layout="centered")
+st.markdown("""
+<style>
+@keyframes ai-glow {
+    0% {
+        border-color: #00d2ff;
+        box-shadow: 0 0 18px rgba(0, 210, 255, 0.8), 0 0 30px rgba(58, 123, 213, 0.4);
+    }
+    33% {
+        border-color: #9d50bb;
+        box-shadow: 0 0 18px rgba(157, 80, 187, 0.8), 0 0 30px rgba(110, 72, 170, 0.4);
+    }
+    66% {
+        border-color: #ff007f;
+        box-shadow: 0 0 18px rgba(255, 0, 127, 0.8), 0 0 30px rgba(255, 85, 163, 0.4);
+    }
+    100% {
+        border-color: #00d2ff;
+        box-shadow: 0 0 18px rgba(0, 210, 255, 0.8), 0 0 30px rgba(58, 123, 213, 0.4);
+    }
+}
+
+[data-testid="stChatInput"] > div {
+    border: 2px solid #00d2ff !important;
+    border-radius: 16px !important;
+    animation: ai-glow 4s infinite linear !important;
+    transition: transform 0.2s ease !important;
+}
+
+[data-testid="stChatInput"] > div:focus-within {
+    animation-duration: 2s !important;
+    transform: scale(1.01) !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 with st.sidebar:
     try:
