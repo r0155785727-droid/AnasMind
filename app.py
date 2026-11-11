@@ -57,7 +57,7 @@ if prompt := st.chat_input("اسأل AnasMind أي شيء..."):
                 for m in st.session_state.messages
             ]
             
-           models_to_try = ["gemini-3.8-flash", "gemini-3.5-flash-lite"]
+            models_to_try = ["gemini-3.8-flash", "gemini-3.5-flash-lite"]
             response = None
             last_error = ""
             
