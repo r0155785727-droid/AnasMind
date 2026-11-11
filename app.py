@@ -132,8 +132,7 @@ if prompt:
             data=uploaded_file.getvalue(),
             mime_type=uploaded_file.type
         ))
-
-    # استقبال الرد بشكل سريع ومتدرج (Streaming)
+    # استقبال الرد بشكل سريع ومتدرج (Streaming) مع حماية من أخطاء الخادم
     with st.chat_message("assistant", avatar="logo.png"):
         def stream_response():
             response = client.models.generate_content_stream(
@@ -147,7 +146,10 @@ if prompt:
                 if chunk.text:
                     yield chunk.text
 
-        full_reply = st.write_stream(stream_response())
+        try:
+            full_reply = st.write_stream(stream_response())
+            st.session_state.messages.append({"role": "assistant", "content": full_reply})
+        except Exception:
+            st.warning("⚠️ هناك ضغط مؤقت على الخادم، من فضلك أعد إرسال رسالتك مرة أخرى.")
 
-    # حفظ رد المساعد في الذاكرة
     st.session_state.messages.append({"role": "assistant", "content": full_reply})
