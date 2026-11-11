@@ -128,16 +128,23 @@ if prompt:
         ))
 
     # إرسال الطلب واستقبال الرد بشخصية AnasMind
-    with st.chat_message("assistant", avatar="logo.png"):
-        with st.spinner("بفكر..."):
-            response = client.models.generate_content(
+       with st.chat_message("assistant", avatar="logo.png"):
+        def stream_response():
+            response = client.models.generate_content_stream(
                 model="gemini-3.8-flash",
                 contents=contents,
                 config=types.GenerateContentConfig(
                     system_instruction=SYSTEM_INSTRUCTION
                 )
             )
-            st.markdown(response.text)
+            for chunk in response:
+                if chunk.text:
+                    yield chunk.text
+
+        full_reply = st.write_stream(stream_response())
+
+    # حفظ الرد الكامل في سجل المحادثة
+    st.session_state.messages.append({"role": "assistant", "content": full_reply})
 
     # حفظ رد البوت في سجل المحادثة
     st.session_state.messages.append({"role": "assistant", "content": response.text})
