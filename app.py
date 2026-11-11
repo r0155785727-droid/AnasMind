@@ -108,7 +108,7 @@ if prompt:
     user_text = prompt.text
     uploaded_file = prompt.files[0] if prompt.files else None
 
-    with st.chat_message("user", avatar="👦"):
+    with st.chat_message("user", avatar="🧑‍💻"):
         if user_text:
             st.markdown(user_text)
         if uploaded_file:
@@ -131,32 +131,33 @@ if prompt:
             mime_type=uploaded_file.type
         ))
 
-    # 8. إرسال الطلب وعرض الرد كلمة بكلمة مثل شات جي بي تي
+    # 8. إرسال الطلب للنموذج الصحيح (gemini-3.8-flash) مع إعادة المحاولة التلقائية والكتابة كلمة بكلمة
     with st.chat_message("assistant", avatar="logo.png"):
-        try:
-            # جلب أفضل نموذج متاح تلقائياً من حسابك
-            available_models = [
-                m.name.replace("models/", "")
-                for m in client.models.list()
-                if "flash" in m.name.lower() and "lite" not in m.name.lower()
-            ]
-            selected_model = available_models[0] if available_models else "gemini-2.5-flash"
+        reply_text = None
+        last_error = ""
 
-            response = client.models.generate_content(
-                model=selected_model,
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_INSTRUCTION
+        for attempt in range(3):
+            try:
+                response = client.models.generate_content(
+                    model="gemini-3.8-flash",
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        system_instruction=SYSTEM_INSTRUCTION
+                    )
                 )
-            )
+                reply_text = response.text
+                break
+            except Exception as e:
+                last_error = str(e)
+                time.sleep(1.5)
 
+        if reply_text:
             def word_by_word_stream(text):
                 for word in text.split(" "):
                     yield word + " "
                     time.sleep(0.03)
 
-            full_reply = st.write_stream(word_by_word_stream(response.text))
+            full_reply = st.write_stream(word_by_word_stream(reply_text))
             st.session_state.messages.append({"role": "assistant", "content": full_reply})
-
-        except Exception as e:
-            st.error(f"⚠️ تفاصيل الخطأ: {e}")
+        else:
+            st.warning(f"⚠️ الخادم مزدحم حالياً، جرب مرة أخرى: {last_error}")
