@@ -61,6 +61,27 @@ with st.sidebar:
     if st.button("مسح المحادثة 🗑️"):
         st.session_state.messages = []
         st.rerun()
+    st.markdown("---")
+
+    if "user_email" not in st.session_state:
+        st.session_state.user_email = ""
+
+    if not st.session_state.user_email:
+        st.subheader("تسجيل الدخول 🔐")
+        email_input = st.text_input("البريد الإلكتروني:", placeholder="name@example.com")
+
+        if st.button("دخول 🚀", use_container_width=True):
+            if "@" in email_input and "." in email_input:
+                st.session_state.user_email = email_input.strip()
+                st.rerun()
+            else:
+                st.error("⚠️ من فضلك أدخل بريداً إلكترونياً صحيحاً!")
+    else:
+        st.success(f"مسجل الدخول بـ:\n**{st.session_state.user_email}**")
+        if st.button("تسجيل الخروج 🚪", use_container_width=True):
+            st.session_state.user_email = ""
+            st.session_state.messages = []
+            st.rerun()
 
 col1, col2 = st.columns([1, 4])
 with col1:
