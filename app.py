@@ -49,24 +49,34 @@ if prompt := st.chat_input("اسأل AnasMind أي شيء..."):
 
     with st.chat_message("assistant"):
         with st.spinner("AnasMind بيفكر..."):
-            try:
-                chat_history = [
-                    types.Content(
-                        role="user" if m["role"] == "user" else "model",
-                        parts=[types.Part.from_text(text=m["content"])]
-                    )
-                    for m in st.session_state.messages
-                ]
-                
-                response = client.models.generate_content(
-                    model="gemini-3.8-flash",
-                    contents=chat_history,
-                    config=types.GenerateContentConfig(
-                        system_instruction=SYSTEM_INSTRUCTION,
-                    )
+            chat_history = [
+                types.Content(
+                    role="user" if m["role"] == "user" else "model",
+                    parts=[types.Part.from_text(text=m["content"])]
                 )
-                
+                for m in st.session_state.messages
+            ]
+            
+            models_to_try = ["gemini-3.8-flash", "gemini-3.8-flash-lite", "gemini-2.5-flash-lite"]
+            response = None
+            last_error = ""
+            
+            for model_name in models_to_try:
+                try:
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=chat_history,
+                        config=types.GenerateContentConfig(
+                            system_instruction=SYSTEM_INSTRUCTION,
+                        )
+                    )
+                    break
+                except Exception as e:
+                    last_error = str(e)
+                    continue
+            
+            if response:
                 st.markdown(response.text)
                 st.session_state.messages.append({"role": "assistant", "content": response.text})
-            except Exception as e:
-                st.error(f"تفاصيل الخطأ: {e}")
+            else:
+                st.error(f"السيرفرات مشغولة حالياً، حاول بعد قليل: {last_error}")
