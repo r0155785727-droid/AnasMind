@@ -29,7 +29,7 @@ API_KEY = st.secrets["GEMINI_API_KEY"]
 
 SYSTEM_INSTRUCTION = """
 أنت مساعد ذكي متطور اسمك AnasMind، تم تطويرك وبرمجتك بالكامل بواسطة المطور أنس إبراهيم.
-تتحدث باللهجة المصرية بطريقة ذكية، ودودة، ومفيدة جداً.
+تتحدث باللهجة المصرية بطريقة ذكية، ودودة، ومفيدة جداً، وإجاباتك سريعة ومباشرة.
 إذا سألك أي شخص "من أنت؟" أو "من صنعك؟"، أجب بكل فخر أنك AnasMind وأن مطورك هو أنس إبراهيم.
 """
 
@@ -48,35 +48,45 @@ if prompt := st.chat_input("اسأل AnasMind أي شيء..."):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("AnasMind بيفكر..."):
-            chat_history = [
-                types.Content(
-                    role="user" if m["role"] == "user" else "model",
-                    parts=[types.Part.from_text(text=m["content"])]
-                )
-                for m in st.session_state.messages
-            ]
-            
-            models_to_try = ["gemini-3.8-flash", "gemini-3.5-flash-lite"]
-            response = None
-            last_error = ""
-            
-            for model_name in models_to_try:
-                try:
-                    response = client.models.generate_content(
-                        model=model_name,
-                        contents=chat_history,
-                        config=types.GenerateContentConfig(
-                            system_instruction=SYSTEM_INSTRUCTION,
-                        )
+        status_box = st.status("⚡ جاري تجهيز الرد بسرعة...", expanded=False)
+        message_placeholder = st.empty()
+        full_response = ""
+        
+        chat_history = [
+            types.Content(
+                role="user" if m["role"] == "user" else "model",
+                parts=[types.Part.from_text(text=m["content"])]
+            )
+            for m in st.session_state.messages
+        ]
+        
+        models_to_try = ["gemini-3.5-flash-lite", "gemini-3.8-flash"]
+        success = False
+        last_error = ""
+        
+        for model_name in models_to_try:
+            try:
+                response_stream = client.models.generate_content_stream(
+                    model=model_name,
+                    contents=chat_history,
+                    config=types.GenerateContentConfig(
+                        system_instruction=SYSTEM_INSTRUCTION,
                     )
-                    break
-                except Exception as e:
-                    last_error = str(e)
-                    continue
-            
-            if response:
-                st.markdown(response.text)
-                st.session_state.messages.append({"role": "assistant", "content": response.text})
-            else:
-                st.error(f"السيرفرات مشغولة حالياً، حاول بعد قليل: {last_error}")
+                )
+                for chunk in response_stream:
+                    if chunk.text:
+                        full_response += chunk.text
+                        message_placeholder.markdown(full_response + "▌")
+                
+                message_placeholder.markdown(full_response)
+                status_box.update(label="✅ تم الرد", state="complete", expanded=False)
+                st.session_state.messages.append({"role": "assistant", "content": full_response})
+                success = True
+                break
+            except Exception as e:
+                last_error = str(e)
+                continue
+        
+        if not success:
+            status_box.update(label="❌ حدث خطأ", state="error", expanded=True)
+            st.error(f"السيرفرات مشغولة حالياً: {last_error}")
