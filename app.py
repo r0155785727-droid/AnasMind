@@ -43,7 +43,7 @@ with st.sidebar:
         st.image("logo.png", width=150)
     except:
         st.write("🧠 **AnasMind**")
-    st.markdown("### عن المنصة")
+    st.markdown("####ا😝عمل زيه يا عبده")
     st.info("تم تطوير وبرمجة AnasMind بواسطة المطور **أنس إبراهيم**.")
     if st.button("مسح المحادثة 🗑️"):
         st.session_state.messages = []
