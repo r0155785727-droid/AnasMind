@@ -84,10 +84,12 @@ client = genai.Client(api_key=API_KEY, http_options={'api_version': 'v1alpha'})
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
-
+    # لعرض سجل المحادثة بالأيقونات الجديدة
 for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
+    icon = "🧑‍💻" if message["role"] == "user" else "😎"
+    with st.chat_message(message["role"], avatar=icon):
         st.markdown(message["content"])
+
 
 if prompt := st.chat_input("ارغي يلا..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
