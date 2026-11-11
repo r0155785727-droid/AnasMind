@@ -15,7 +15,7 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
-col1, col2 = st.columns([1, 4])
+col1, col2 = st.columns()
 with col1:
     try:
         st.image("logo.png", width=85)
@@ -33,7 +33,7 @@ SYSTEM_INSTRUCTION = """
 إذا سألك أي شخص "من أنت؟" أو "من صنعك؟"، أجب بكل فخر أنك AnasMind وأن مطورك هو أنس إبراهيم.
 """
 
-client = genai.Client(api_key=API_KEY)
+client = genai.Client(api_key=API_KEY, http_options={'api_version': 'v1alpha'})
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -49,21 +49,24 @@ if prompt := st.chat_input("اسأل AnasMind أي شيء..."):
 
     with st.chat_message("assistant"):
         with st.spinner("AnasMind بيفكر..."):
-            chat_history = [
-                types.Content(
-                    role="user" if m["role"] == "user" else "model",
-                    parts=[types.Part.from_text(text=m["content"])]
+            try:
+                chat_history = [
+                    types.Content(
+                        role="user" if m["role"] == "user" else "model",
+                        parts=[types.Part.from_text(text=m["content"])]
+                    )
+                    for m in st.session_state.messages
+                ]
+                
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=chat_history,
+                    config=types.GenerateContentConfig(
+                        system_instruction=SYSTEM_INSTRUCTION,
+                    )
                 )
-                for m in st.session_state.messages
-            ]
-            
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=chat_history,
-                config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_INSTRUCTION,
-                )
-            )
-            
-            st.markdown(response.text)
-            st.session_state.messages.append({"role": "assistant", "content": response.text})
+                
+                st.markdown(response.text)
+                st.session_state.messages.append({"role": "assistant", "content": response.text})
+            except Exception as e:
+                st.error(f"تفاصيل الخطأ: {e}")
