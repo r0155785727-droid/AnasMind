@@ -5,6 +5,19 @@ from google.genai import types
 st.set_page_config(page_title="AnasMind", page_icon="logo.png", layout="centered")
 st.markdown("""
 <style>
+.stApp {
+    background: radial-gradient(circle at top, #131c31 0%, #090d16 55%, #05070c 100%) !important;
+    color: #ffffff !important;
+}
+
+[data-testid="stHeader"] {
+    background: rgba(0, 0, 0, 0) !important;
+}
+
+[data-testid="stBottom"] > div {
+    background: transparent !important;
+}
+
 @keyframes ai-glow {
     0% {
         border-color: #00d2ff;
