@@ -108,7 +108,7 @@ if prompt:
     user_text = prompt.text
     uploaded_file = prompt.files[0] if prompt.files else None
 
-    with st.chat_message("user", avatar="🧑‍💻"):
+    with st.chat_message("user", avatar="👦"):
         if user_text:
             st.markdown(user_text)
         if uploaded_file:
