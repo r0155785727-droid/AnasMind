@@ -66,7 +66,7 @@ with st.sidebar:
             st.rerun()
 
 # 4. ترويسة الصفحة الرئيسية
-col1, col2 = st.columns([1, 5])
+col1, col2 = st.columns([1, 4])
 with col1:
     try:
         st.image("logo.png", width=85)
@@ -76,7 +76,7 @@ with col2:
     st.title("AnasMind")
     st.caption("🚀 تم التطوير بواسطة: أنس إبراهيم")
 
-# 5. إعداد الاتصال بنموذج Gemini وتعليمات الشخصية
+# 5. إعداد الاتصال السريع بنموذج Gemini
 API_KEY = st.secrets["GEMINI_API_KEY"]
 
 SYSTEM_INSTRUCTION = """
@@ -85,7 +85,7 @@ SYSTEM_INSTRUCTION = """
 إذا سألك أي شخص "من أنت؟" أو "من صنعك؟"، أجب بكل فخر أنك AnasMind وأن مطورك هو أنس إبراهيم.
 """
 
-client = genai.Client(api_key=API_KEY)
+client = genai.Client(api_key=API_KEY, http_options={'api_version': 'v1alpha'})
 
 # 6. تهيئة وعرض سجل المحادثة بالأيقونات المخصصة
 if "messages" not in st.session_state:
@@ -107,7 +107,6 @@ if prompt:
     user_text = prompt.text
     uploaded_file = prompt.files[0] if prompt.files else None
 
-    # عرض رسالة المستخدم والمرفقات
     with st.chat_message("user", avatar="🧑‍💻"):
         if user_text:
             st.markdown(user_text)
@@ -117,13 +116,11 @@ if prompt:
             else:
                 st.info(f"📄 تم إرفاق ملف: {uploaded_file.name}")
 
-    # حفظ رسالة المستخدم في الذاكرة
     st.session_state.messages.append({
         "role": "user",
         "content": user_text if user_text else f"[مرفق: {uploaded_file.name}]"
     })
 
-    # تجهيز المحتوى لإرساله إلى Gemini
     contents = []
     if user_text:
         contents.append(user_text)
@@ -132,24 +129,19 @@ if prompt:
             data=uploaded_file.getvalue(),
             mime_type=uploaded_file.type
         ))
-    # استقبال الرد بشكل سريع ومتدرج (Streaming) مع حماية من أخطاء الخادم
+
+    # إرسال الطلب واستقبال الرد الفوري السريع
     with st.chat_message("assistant", avatar="logo.png"):
-        def stream_response():
-            response = client.models.generate_content_stream(
+        try:
+            response = client.models.generate_content(
                 model="gemini-3.8-flash",
                 contents=contents,
                 config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_INSTRUCTION
+                    system_instruction=SYSTEM_INSTRUCTION,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0)
                 )
             )
-            for chunk in response:
-                if chunk.text:
-                    yield chunk.text
-
-        try:
-            full_reply = st.write_stream(stream_response())
-            st.session_state.messages.append({"role": "assistant", "content": full_reply})
-        except Exception:
-            st.warning("⚠️ هناك ضغط مؤقت على الخادم، من فضلك أعد إرسال رسالتك مرة أخرى.")
-
-    st.session_state.messages.append({"role": "assistant", "content": full_reply})
+            st.markdown(response.text)
+            st.session_state.messages.append({"role": "assistant", "content": response.text})
+        except Exception as e:
+            st.error(f"⚠️ حدث خطأ مؤقت، حاول مرة أخرى: {e}")
