@@ -1,16 +1,15 @@
-import time
 import streamlit as st
 from google import genai
 from google.genai import types
 
-# إعدادات الصفحة
+# 1. إعدادات الصفحة الأساسية
 st.set_page_config(
     page_title="AnasMind",
     page_icon="logo.png",
     layout="wide"
 )
 
-# تنسيق الخلفية والمحاذاة العربية
+# 2. تنسيق الواجهة وضبط اتجاه اللغة العربية (RTL)
 st.markdown("""
 <style>
     .stApp {
@@ -21,10 +20,15 @@ st.markdown("""
         direction: rtl;
         text-align: right;
     }
+    [data-testid="stChatInput"] > div:focus-within {
+        border-color: #38bdf8 !important;
+        box-shadow: 0 0 15px rgba(56, 189, 248, 0.3) !important;
+        transition: all 0.3s ease;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# القائمة الجانبية الأصلية
+# 3. القائمة الجانبية (الشعار + تسجيل الدخول بالإيميل + مسح المحادثة)
 with st.sidebar:
     try:
         st.image("logo.png", width=150)
@@ -38,8 +42,31 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
-# ترويسة الصفحة الأصلية
-col1, col2 = st.columns([1, 5])
+    st.markdown("---")
+
+    # نظام تسجيل الدخول بالبريد الإلكتروني
+    if "user_email" not in st.session_state:
+        st.session_state.user_email = ""
+
+    if not st.session_state.user_email:
+        st.subheader("تسجيل الدخول 🔐")
+        email_input = st.text_input("البريد الإلكتروني:", placeholder="name@example.com")
+
+        if st.button("دخول 🚀", use_container_width=True):
+            if "@" in email_input and "." in email_input:
+                st.session_state.user_email = email_input.strip()
+                st.rerun()
+            else:
+                st.error("⚠️ من فضلك أدخل بريداً إلكترونياً صحيحاً!")
+    else:
+        st.success(f"مسجل الدخول بـ:\n**{st.session_state.user_email}**")
+        if st.button("تسجيل الخروج 🚪", use_container_width=True):
+            st.session_state.user_email = ""
+            st.session_state.messages = []
+            st.rerun()
+
+# 4. ترويسة الصفحة الرئيسية
+col1, col2 = st.columns([1, 4])
 with col1:
     try:
         st.image("logo.png", width=85)
@@ -49,7 +76,7 @@ with col2:
     st.title("AnasMind")
     st.caption("🚀 تم التطوير بواسطة: أنس إبراهيم")
 
-# إعداد الاتصال بـ Gemini
+# 5. إعداد الاتصال السريع بنموذج Gemini
 API_KEY = st.secrets["GEMINI_API_KEY"]
 
 SYSTEM_INSTRUCTION = """
@@ -58,9 +85,9 @@ SYSTEM_INSTRUCTION = """
 إذا سألك أي شخص "من أنت؟" أو "من صنعك؟"، أجب بكل فخر أنك AnasMind وأن مطورك هو أنس إبراهيم.
 """
 
-client = genai.Client(api_key=API_KEY, http_options={'api_version': 'v1alpha'})
+client = genai.Client(api_key=API_KEY)
 
-# عرض سجل المحادثة بالأيقونات
+# 6. تهيئة وعرض سجل المحادثة بالأيقونات المخصصة
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -69,26 +96,61 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"], avatar=icon):
         st.markdown(message["content"])
 
-# مربع الدردشة الأصلي السريع
-if prompt := st.chat_input("ارغي يلا..."):
+# 7. مربع الكتابة ودعم رفع الصور والملفات
+prompt = st.chat_input(
+    "ارغي يلا أو ارفع صورة...",
+    accept_file=True,
+    file_type=["jpg", "jpeg", "png", "webp", "pdf"]
+)
+
+if prompt:
+    user_text = prompt.text
+    uploaded_file = prompt.files[0] if prompt.files else None
+
     with st.chat_message("user", avatar="🧑‍💻"):
-        st.markdown(prompt)
-    st.session_state.messages.append({"role": "user", "content": prompt})
+        if user_text:
+            st.markdown(user_text)
+        if uploaded_file:
+            if uploaded_file.type.startswith("image/"):
+                st.image(uploaded_file, width=250)
+            else:
+                st.info(f"📄 تم إرفاق ملف: {uploaded_file.name}")
 
+    st.session_state.messages.append({
+        "role": "user",
+        "content": user_text if user_text else f"[مرفق: {uploaded_file.name}]"
+    })
+
+    contents = []
+    if user_text:
+        contents.append(user_text)
+    if uploaded_file:
+        contents.append(types.Part.from_bytes(
+            data=uploaded_file.getvalue(),
+            mime_type=uploaded_file.type
+        ))
+
+    # إرسال الطلب مع تبديل تلقائي للنموذج في حالة الضغط أو التوقف
     with st.chat_message("assistant", avatar="logo.png"):
-        response = client.models.generate_content(
-            model="gemini-3.8-flash",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_INSTRUCTION
-            )
-        )
+        models_to_try = ["gemini-2.5-flash-lite", "gemini-3.8-flash", "gemini-2.0-flash"]
+        reply_text = None
 
-        def word_stream(text):
-            for word in text.split(" "):
-                yield word + " "
-                time.sleep(0.03)
+        for model_name in models_to_try:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        system_instruction=SYSTEM_INSTRUCTION
+                    )
+                )
+                reply_text = response.text
+                break
+            except Exception:
+                continue
 
-        full_reply = st.write_stream(word_stream(response.text))
-
-    st.session_state.messages.append({"role": "assistant", "content": full_reply})
+        if reply_text:
+            st.markdown(reply_text)
+            st.session_state.messages.append({"role": "assistant", "content": reply_text})
+        else:
+            st.warning("⚠️ الخوادم مزدحمة جداً الآن، جرب مرة أخرى بعد ثوانٍ.")
