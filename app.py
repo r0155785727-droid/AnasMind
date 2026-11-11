@@ -107,7 +107,7 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
     # لعرض سجل المحادثة بالأيقونات الجديدة
 for message in st.session_state.messages:
-    icon = "🧑‍💻" if message["role"] == "user" else "😎"
+    icon = "👦" if message["role"] == "user" else "logo.png"
     with st.chat_message(message["role"], avatar=icon):
         st.markdown(message["content"])
 
