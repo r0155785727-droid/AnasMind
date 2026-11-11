@@ -85,7 +85,7 @@ SYSTEM_INSTRUCTION = """
 إذا سألك أي شخص "من أنت؟" أو "من صنعك؟"، أجب بكل فخر أنك AnasMind وأن مطورك هو أنس إبراهيم.
 """
 
-client = genai.Client(api_key=API_KEY, http_options={'api_version': 'v1alpha'})
+client = genai.Client(api_key=API_KEY)
 
 # 6. تهيئة وعرض سجل المحادثة بالأيقونات المخصصة
 if "messages" not in st.session_state:
@@ -130,18 +130,27 @@ if prompt:
             mime_type=uploaded_file.type
         ))
 
-    # إرسال الطلب واستقبال الرد الفوري السريع
+    # إرسال الطلب مع تبديل تلقائي للنموذج في حالة الضغط أو التوقف
     with st.chat_message("assistant", avatar="logo.png"):
-        try:
-            response = client.models.generate_content(
-                model="gemini-3.8-flash",
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_INSTRUCTION,
-                    thinking_config=types.ThinkingConfig(thinking_budget=0)
+        models_to_try = ["gemini-2.5-flash-lite", "gemini-3.8-flash", "gemini-2.0-flash"]
+        reply_text = None
+
+        for model_name in models_to_try:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        system_instruction=SYSTEM_INSTRUCTION
+                    )
                 )
-            )
-            st.markdown(response.text)
-            st.session_state.messages.append({"role": "assistant", "content": response.text})
-        except Exception as e:
-            st.error(f"⚠️ حدث خطأ مؤقت، حاول مرة أخرى: {e}")
+                reply_text = response.text
+                break
+            except Exception:
+                continue
+
+        if reply_text:
+            st.markdown(reply_text)
+            st.session_state.messages.append({"role": "assistant", "content": reply_text})
+        else:
+            st.warning("⚠️ الخوادم مزدحمة جداً الآن، جرب مرة أخرى بعد ثوانٍ.")
