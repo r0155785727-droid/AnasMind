@@ -91,7 +91,57 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 
-if prompt := st.chat_input("ارغي يلا..."):
+prompt = st.chat_input(
+    "ارغي يلا أو ارفع صورة...",
+    accept_file=True,
+    file_type=["jpg", "jpeg", "png", "webp", "pdf"]
+)
+
+if prompt:
+    user_text = prompt.text
+    uploaded_file = prompt.files
+
+    # عرض رسالة المستخدم والصورة (إن وجدت) في الشاشة
+    with st.chat_message("user", avatar="🧑‍💻"):
+        if user_text:
+            st.markdown(user_text)
+        if uploaded_file:
+            if uploaded_file.type.startswith("image/"):
+                st.image(uploaded_file, width=250)
+            else:
+                st.info(f"📄 تم إرفاق ملف: {uploaded_file.name}")
+
+    # حفظ الرسالة في سجل المحادثة
+    st.session_state.messages.append({
+        "role": "user", 
+        "content": user_text if user_text else f"[مرفق: {uploaded_file.name}]"
+    })
+
+    # تجهيز المحتوى (النص + الصورة/الملف) لإرساله إلى Gemini
+    contents = []
+    if user_text:
+        contents.append(user_text)
+    if uploaded_file:
+        contents.append(types.Part.from_bytes(
+            data=uploaded_file.getvalue(),
+            mime_type=uploaded_file.type
+        ))
+
+    # إرسال الطلب واستقبال الرد بشخصية AnasMind
+    with st.chat_message("assistant", avatar="logo.png"):
+        with st.spinner("بفكر..."):
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_INSTRUCTION
+                )
+            )
+            st.markdown(response.text)
+
+    # حفظ رد البوت في سجل المحادثة
+    st.session_state.messages.append({"role": "assistant", "content": response.text})
+
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
