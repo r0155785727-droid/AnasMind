@@ -1,3 +1,4 @@
+import time
 import streamlit as st
 from google import genai
 from google.genai import types
@@ -130,7 +131,7 @@ if prompt:
             mime_type=uploaded_file.type
         ))
 
-    # 8. إرسال الطلب واستقبال الرد كلمة بكلمة (Streaming) مع تبديل تلقائي للنموذج عند الضغط
+    # 8. إرسال الطلب وعرض الرد كلمة بكلمة مثل شات جي بي تي
     with st.chat_message("assistant", avatar="logo.png"):
         models_to_try = ["gemini-2.5-flash-lite", "gemini-3.8-flash", "gemini-2.0-flash"]
         success = False
@@ -145,12 +146,15 @@ if prompt:
                     )
                 )
 
-                def stream_generator():
+                def word_by_word_stream():
                     for chunk in response:
                         if chunk.text:
-                            yield chunk.text
+                            words = chunk.text.split(" ")
+                            for word in words:
+                                yield word + " "
+                                time.sleep(0.03)
 
-                full_reply = st.write_stream(stream_generator())
+                full_reply = st.write_stream(word_by_word_stream())
                 st.session_state.messages.append({"role": "assistant", "content": full_reply})
                 success = True
                 break
