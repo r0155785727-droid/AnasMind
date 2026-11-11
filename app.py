@@ -67,7 +67,7 @@ with st.sidebar:
             st.rerun()
 
 # 4. ترويسة الصفحة الرئيسية
-col1, col2 = st.columns([1, 4])
+col1, col2 = st.columns([1, 8])
 with col1:
     try:
         st.image("logo.png", width=85)
@@ -77,7 +77,7 @@ with col2:
     st.title("AnasMind")
     st.caption("🚀 تم التطوير بواسطة: أنس إبراهيم")
 
-# 5. إعداد الاتصال السريع بنموذج Gemini
+# 5. إعداد الاتصال بنموذج Gemini
 API_KEY = st.secrets["GEMINI_API_KEY"]
 
 SYSTEM_INSTRUCTION = """
@@ -133,33 +133,30 @@ if prompt:
 
     # 8. إرسال الطلب وعرض الرد كلمة بكلمة مثل شات جي بي تي
     with st.chat_message("assistant", avatar="logo.png"):
-        models_to_try = ["gemini-2.5-flash-lite", "gemini-3.8-flash", "gemini-2.0-flash"]
-        success = False
+        try:
+            # جلب أفضل نموذج متاح تلقائياً من حسابك
+            available_models = [
+                m.name.replace("models/", "")
+                for m in client.models.list()
+                if "flash" in m.name.lower() and "lite" not in m.name.lower()
+            ]
+            selected_model = available_models[0] if available_models else "gemini-2.5-flash"
 
-        for model_name in models_to_try:
-            try:
-                response = client.models.generate_content_stream(
-                    model=model_name,
-                    contents=contents,
-                    config=types.GenerateContentConfig(
-                        system_instruction=SYSTEM_INSTRUCTION
-                    )
+            response = client.models.generate_content(
+                model=selected_model,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_INSTRUCTION
                 )
+            )
 
-                def word_by_word_stream():
-                    for chunk in response:
-                        if chunk.text:
-                            words = chunk.text.split(" ")
-                            for word in words:
-                                yield word + " "
-                                time.sleep(0.03)
+            def word_by_word_stream(text):
+                for word in text.split(" "):
+                    yield word + " "
+                    time.sleep(0.03)
 
-                full_reply = st.write_stream(word_by_word_stream())
-                st.session_state.messages.append({"role": "assistant", "content": full_reply})
-                success = True
-                break
-            except Exception:
-                continue
+            full_reply = st.write_stream(word_by_word_stream(response.text))
+            st.session_state.messages.append({"role": "assistant", "content": full_reply})
 
-        if not success:
-            st.warning("⚠️ الخوادم مزدحمة حالياً، من فضلك أعد إرسال رسالتك بعد ثوانٍ.")
+        except Exception as e:
+            st.error(f"⚠️ تفاصيل الخطأ: {e}")
