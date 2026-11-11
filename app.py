@@ -2,67 +2,71 @@ import streamlit as st
 from google import genai
 from google.genai import types
 
-st.set_page_config(page_title="AnasMind", page_icon="logo.png", layout="centered")
+# 1. إعدادات الصفحة الأساسية
+st.set_page_config(
+    page_title="AnasMind",
+    page_icon="logo.png",
+    layout="wide"
+)
+
+# 2. تنسيق الواجهة وضبط اتجاه اللغة العربية (RTL)
 st.markdown("""
 <style>
-.stApp {
-    background: radial-gradient(circle at top, #131c31 0%, #090d16 55%, #05070c 100%) !important;
-    color: #ffffff !important;
-}
-
-[data-testid="stHeader"] {
-    background: rgba(0, 0, 0, 0) !important;
-}
-
-[data-testid="stBottom"] > div {
-    background: transparent !important;
-}
-
-@keyframes ai-glow {
-    0% {
-        border-color: #00d2ff;
-        box-shadow: 0 0 18px rgba(0, 210, 255, 0.8), 0 0 30px rgba(58, 123, 213, 0.4);
+    .stApp {
+        background: linear-gradient(135deg, #0b0f19 0%, #111827 50%, #0f172a 100%);
+        color: #f8fafc;
     }
-    33% {
-        border-color: #9d50bb;
-        box-shadow: 0 0 18px rgba(157, 80, 187, 0.8), 0 0 30px rgba(110, 72, 170, 0.4);
+    .stChatMessage, .stMarkdown, .stTextInput {
+        direction: rtl;
+        text-align: right;
     }
-    66% {
-        border-color: #ff007f;
-        box-shadow: 0 0 18px rgba(255, 0, 127, 0.8), 0 0 30px rgba(255, 85, 163, 0.4);
+    [data-testid="stChatInput"] > div:focus-within {
+        border-color: #38bdf8 !important;
+        box-shadow: 0 0 15px rgba(56, 189, 248, 0.3) !important;
+        transition: all 0.3s ease;
     }
-    100% {
-        border-color: #00d2ff;
-        box-shadow: 0 0 18px rgba(0, 210, 255, 0.8), 0 0 30px rgba(58, 123, 213, 0.4);
-    }
-}
-
-[data-testid="stChatInput"] > div {
-    border: 2px solid #00d2ff !important;
-    border-radius: 16px !important;
-    animation: ai-glow 4s infinite linear !important;
-    transition: transform 0.2s ease !important;
-}
-
-[data-testid="stChatInput"] > div:focus-within {
-    animation-duration: 2s !important;
-    transform: scale(1.01) !important;
-}
 </style>
 """, unsafe_allow_html=True)
 
+# 3. القائمة الجانبية (الشعار + تسجيل الدخول بالإيميل + مسح المحادثة)
 with st.sidebar:
     try:
         st.image("logo.png", width=150)
     except:
         st.write("🧠 **AnasMind**")
-    st.markdown("اعمل زيه يا عبده😝")
+
+    st.markdown("اعمل زيه يا عبده 😉")
     st.info("تم تطوير وبرمجة AnasMind بواسطة المطور **أنس إبراهيم**.")
-    if st.button("مسح المحادثة 🗑️"):
+
+    if st.button("مسح المحادثة 🗑️", use_container_width=True):
         st.session_state.messages = []
         st.rerun()
 
-col1, col2 = st.columns([1, 4])
+    st.markdown("---")
+
+    # نظام تسجيل الدخول بالبريد الإلكتروني
+    if "user_email" not in st.session_state:
+        st.session_state.user_email = ""
+
+    if not st.session_state.user_email:
+        st.subheader("تسجيل الدخول 🔐")
+        email_input = st.text_input("البريد الإلكتروني:", placeholder="name@example.com")
+
+        if st.button("دخول 🚀", use_container_width=True):
+            if "@" in email_input and "." in email_input:
+                st.session_state.user_email = email_input.strip()
+                st.rerun()
+            else:
+                st.error("⚠️ من فضلك أدخل بريداً إلكترونياً صحيحاً!")
+    else:
+        st.success(f"مسجل الدخول بـ:\n**{st.session_state.user_email}**")
+        if st.button("تسجيل الخروج 🚪", use_container_width=True):
+            st.session_state.user_email = ""
+            st.session_state.messages = []
+            st.rerun()
+
+# 4. ترويسة الصفحة الرئيسية
+col1, col2 = st.columns([1, 5])
 with col1:
     try:
         st.image("logo.png", width=85)
@@ -70,8 +74,9 @@ with col1:
         st.title("🧠")
 with col2:
     st.title("AnasMind")
-    st.caption("تم التطوير بواسطة: أنس إبراهيم 🚀")
+    st.caption("🚀 تم التطوير بواسطة: أنس إبراهيم")
 
+# 5. إعداد الاتصال بنموذج Gemini وتعليمات الشخصية
 API_KEY = st.secrets["GEMINI_API_KEY"]
 
 SYSTEM_INSTRUCTION = """
@@ -80,17 +85,18 @@ SYSTEM_INSTRUCTION = """
 إذا سألك أي شخص "من أنت؟" أو "من صنعك؟"، أجب بكل فخر أنك AnasMind وأن مطورك هو أنس إبراهيم.
 """
 
-client = genai.Client(api_key=API_KEY, http_options={'api_version': 'v1alpha'})
+client = genai.Client(api_key=API_KEY)
 
+# 6. تهيئة وعرض سجل المحادثة بالأيقونات المخصصة
 if "messages" not in st.session_state:
     st.session_state.messages = []
-    # لعرض سجل المحادثة بالأيقونات الجديدة
+
 for message in st.session_state.messages:
-    icon = "👦" if message["role"] == "user" else "logo.png"
+    icon = "🧑‍💻" if message["role"] == "user" else "logo.png"
     with st.chat_message(message["role"], avatar=icon):
         st.markdown(message["content"])
 
-
+# 7. مربع الكتابة ودعم رفع الصور والملفات
 prompt = st.chat_input(
     "ارغي يلا أو ارفع صورة...",
     accept_file=True,
@@ -99,9 +105,9 @@ prompt = st.chat_input(
 
 if prompt:
     user_text = prompt.text
-    uploaded_file = prompt.files
+    uploaded_file = prompt.files[0] if prompt.files else None
 
-    # عرض رسالة المستخدم والصورة (إن وجدت) في الشاشة
+    # عرض رسالة المستخدم والمرفقات
     with st.chat_message("user", avatar="🧑‍💻"):
         if user_text:
             st.markdown(user_text)
@@ -111,13 +117,13 @@ if prompt:
             else:
                 st.info(f"📄 تم إرفاق ملف: {uploaded_file.name}")
 
-    # حفظ الرسالة في سجل المحادثة
+    # حفظ رسالة المستخدم في الذاكرة
     st.session_state.messages.append({
-        "role": "user", 
+        "role": "user",
         "content": user_text if user_text else f"[مرفق: {uploaded_file.name}]"
     })
 
-    # تجهيز المحتوى (النص + الصورة/الملف) لإرساله إلى Gemini
+    # تجهيز المحتوى لإرساله إلى Gemini
     contents = []
     if user_text:
         contents.append(user_text)
@@ -127,8 +133,8 @@ if prompt:
             mime_type=uploaded_file.type
         ))
 
-    # إرسال الطلب واستقبال الرد بشخصية AnasMind
-       with st.chat_message("assistant", avatar="logo.png"):
+    # استقبال الرد بشكل سريع ومتدرج (Streaming)
+    with st.chat_message("assistant", avatar="logo.png"):
         def stream_response():
             response = client.models.generate_content_stream(
                 model="gemini-3.8-flash",
@@ -140,58 +146,8 @@ if prompt:
             for chunk in response:
                 if chunk.text:
                     yield chunk.text
-    
+
         full_reply = st.write_stream(stream_response())
-    
+
+    # حفظ رد المساعد في الذاكرة
     st.session_state.messages.append({"role": "assistant", "content": full_reply})
-
-    # حفظ رد البوت في سجل المحادثة
-    st.session_state.messages.append({"role": "assistant", "content": response.text})
-
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-
-    with st.chat_message("assistant"):
-        status_box = st.status("⚡ جاري تجهيز الرد بسرعة...", expanded=False)
-        message_placeholder = st.empty()
-        full_response = ""
-        
-        chat_history = [
-            types.Content(
-                role="user" if m["role"] == "user" else "model",
-                parts=[types.Part.from_text(text=m["content"])]
-            )
-            for m in st.session_state.messages
-        ]
-        
-        models_to_try = ["gemini-3.5-flash-lite", "gemini-3.8-flash"]
-        success = False
-        last_error = ""
-        
-        for model_name in models_to_try:
-            try:
-                response_stream = client.models.generate_content_stream(
-                    model=model_name,
-                    contents=chat_history,
-                    config=types.GenerateContentConfig(
-                        system_instruction=SYSTEM_INSTRUCTION,
-                    )
-                )
-                for chunk in response_stream:
-                    if chunk.text:
-                        full_response += chunk.text
-                        message_placeholder.markdown(full_response + "▌")
-                
-                message_placeholder.markdown(full_response)
-                status_box.update(label="✅ تم الرد", state="complete", expanded=False)
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
-                success = True
-                break
-            except Exception as e:
-                last_error = str(e)
-                continue
-        
-        if not success:
-            status_box.update(label="❌ حدث خطأ", state="error", expanded=True)
-            st.error(f"السيرفرات مشغولة حالياً: {last_error}")
