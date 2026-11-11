@@ -39,7 +39,7 @@ with st.sidebar:
         st.rerun()
 
 # ترويسة الصفحة الأصلية
-col1, col2 = st.columns()
+col1, col2 = st.columns([1, 5])
 with col1:
     try:
         st.image("logo.png", width=85)
