@@ -15,7 +15,7 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
-col1, col2 = st.columns()
+col1, col2 = st.columns([1, 4])
 with col1:
     try:
         st.image("logo.png", width=85)
