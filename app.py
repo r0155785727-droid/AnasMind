@@ -10,7 +10,7 @@ import streamlit as st
 from google import genai
 from google.genai import types
 
-# 1. إعدادات الصفحة وإجبار القائمة الجانبية على الظهور مفتوحة في البداية
+# 1. إعدادات الصفحة والقائمة الجانبية مفتوحة في البداية
 st.set_page_config(
     page_title="AnasMind Pro",
     page_icon="logo.png",
@@ -18,7 +18,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. تنسيق CSS احترافي، محاذاة عربية (RTL)، وتجميل القائمة الجانبية
+# 2. تنسيق الواجهة واللغة العربية
 st.markdown("""
 <style>
     .stApp {
@@ -33,24 +33,10 @@ st.markdown("""
         direction: rtl;
         text-align: right;
     }
-    [data-testid="stChatInput"] > div:focus-within {
-        border-color: #38bdf8 !important;
-        box-shadow: 0 0 15px rgba(56, 189, 248, 0.3) !important;
-        transition: all 0.3s ease;
-    }
-    div.stButton > button {
-        border-radius: 10px;
-        border: 1px solid rgba(56, 189, 248, 0.3);
-        transition: all 0.2s ease;
-    }
-    div.stButton > button:hover {
-        border-color: #38bdf8;
-        box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
-    }
 </style>
 """, unsafe_allow_html=True)
 
-# 3. دوال قاعدة البيانات المحلية لحفظ الحسابات والشات القديم
+# 3. دوال حفظ الحسابات والشات القديم
 USERS_FILE = "users_db.json"
 CHATS_FILE = "chats_db.json"
 
@@ -70,7 +56,6 @@ def save_json(filepath, data):
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-# تهيئة متغيرات الجلسة
 if "logged_in_user" not in st.session_state:
     st.session_state.logged_in_user = None
 if "messages" not in st.session_state:
@@ -78,13 +63,10 @@ if "messages" not in st.session_state:
 if "current_chat_id" not in st.session_state:
     st.session_state.current_chat_id = str(int(time.time()))
 
-# إعداد الاتصال بـ Gemini
 API_KEY = st.secrets["GEMINI_API_KEY"]
 client = genai.Client(api_key=API_KEY)
 
-# ==========================================
-# 4. القائمة الجانبية الاحترافية (تظهر مفتوحة في البداية)
-# ==========================================
+# 4. القائمة الجانبية المنظمة
 with st.sidebar:
     col_logo, col_title = st.columns([1, 2])
     with col_logo:
@@ -98,8 +80,8 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # --- القسم الأول: التنقل بين الأقسام ---
-    st.markdown("#### 🧭 اختر القسم")
+    # الأقسام
+    st.markdown("#### 🧭 الأقسام")
     selected_section = st.radio(
         "الأقسام:",
         ["💬 الدردشة", "📚 التعلم", "🎨 إنشاء صور"],
@@ -108,7 +90,7 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # --- القسم الثاني: إدارة الشات القديم ومسح الشات ---
+    # الشات القديم ومسح الشات
     st.markdown("#### 🗂️ المحادثات")
     user_key = st.session_state.logged_in_user or "guest"
     all_chats = load_json(CHATS_FILE)
@@ -144,7 +126,7 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # --- القسم الثالث: تسجيل الدخول وحفظ الحساب ---
+    # تسجيل الدخول وحفظ الحساب
     st.markdown("#### 🔐 حساب المستخدم")
     if not st.session_state.logged_in_user:
         auth_mode = st.radio(
@@ -162,7 +144,7 @@ with st.sidebar:
                 st.error("⚠️ أدخل إيميلاً صحيحاً وباسورد (4 أحرف على الأقل).")
             elif auth_mode == "حساب جديد":
                 if email in users:
-                    st.warning("⚠️ هذا الإيميل مسجل بالفعل، اختر تسجيل الدخول.")
+                    st.warning("⚠️ هذا الإيميل مسجل بالفعل.")
                 else:
                     users[email] = hash_password(password)
                     save_json(USERS_FILE, users)
@@ -182,9 +164,7 @@ with st.sidebar:
             st.session_state.current_chat_id = str(int(time.time()))
             st.rerun()
 
-# ==========================================
-# دالة تشغيل واجهة الدردشة والتعلم بسلاسة
-# ==========================================
+# دالة تشغيل الدردشة والتعلم
 def run_chat_interface(title, subtitle, system_prompt, placeholder_text):
     st.title(title)
     st.caption(subtitle)
@@ -222,7 +202,6 @@ def run_chat_interface(title, subtitle, system_prompt, placeholder_text):
                 full_reply = st.write_stream(word_stream(reply_text))
                 st.session_state.messages.append({"role": "assistant", "content": full_reply})
 
-                # حفظ المحادثة في سجل الشات القديم
                 all_c = load_json(CHATS_FILE)
                 if user_key not in all_c:
                     all_c[user_key] = {}
@@ -235,19 +214,14 @@ def run_chat_interface(title, subtitle, system_prompt, placeholder_text):
             else:
                 st.warning("⚠️ الخادم مزدحم حالياً، جرب إرسال الرسالة مرة أخرى.")
 
-# ==========================================
-# 5. عرض المحتوى الرئيسي حسب القسم المختار
-# ==========================================
+# 5. عرض القسم المختار
 if selected_section == "💬 الدردشة":
     SYS_CHAT = "أنت AnasMind، مساعد ذكي من تطوير أنس إبراهيم. تتحدث باللهجة المصرية بطريقة ذكية وسريعة ومفيدة."
     run_chat_interface("💬 دردشة AnasMind", "اسألني في أي موضوع وهجاوبك فوراً", SYS_CHAT, "ارغي يلا...")
 
 elif selected_section == "📚 التعلم":
-    SYS_LEARN = """
-    أنت معلم خبير ومساعد تعليمي في منصة AnasMind من تطوير أنس إبراهيم.
-    مهمتك شرح الدروس والمفاهيم بأسلوب مبسط جداً ومنظم في نقاط، مع إعطاء أمثلة عملية وأسئلة اختبار قصيرة في نهاية الشرح للتأكد من فهم الطالب.
-    """
-    run_chat_interface("📚 ركن التعلم الذكي", "اشرح لي درساً، لخص كتاباً، أو اختبرني في مادة", SYS_LEARN, "اكتب اسم الدرس أو الموضوع اللي عايز تتعلمه...")
+    SYS_LEARN = "أنت معلم خبير ومساعد تعليمي في منصة AnasMind من تطوير أنس إبراهيم. اشرح الدروس بأسلوب مبسط ومنظم مع أمثلة وأسئلة اختبار قصيرة."
+    run_chat_interface("📚 ركن التعلم الذكي", "اشرح لي درساً، لخص كتاباً، أو اختبرني في مادة", SYS_LEARN, "اكتب اسم الدرس أو الموضوع...")
 
 elif selected_section == "🎨 إنشاء صور":
     st.title("🎨 استوديو إنشاء الصور")
@@ -259,6 +233,27 @@ elif selected_section == "🎨 إنشاء صور":
             st.warning("⚠️ اكتب وصف الصورة أولاً!")
         else:
             with st.spinner("🎨 جاري رسم الصورة..."):
-                image_rendered = False
+                try:
+                    trans = client.models.generate_content(
+                        model="gemini-3.8-flash",
+                        contents=f"Translate this image prompt to detailed English only without any extra text: {img_prompt}"
+                    )
+                    en_prompt = trans.text.strip()
+                except Exception:
+                    en_prompt = img_prompt
 
-                # المحاولة الأولى عبر Gemini
+                clean_prompt = " ".join(en_prompt.split())
+                encoded_prompt = urllib.parse.quote(clean_prompt)
+                image_url = f"https://pollinations.ai{encoded_prompt}?width=1024&height=1024&nologo=true"
+
+                try:
+                    req = urllib.request.Request(image_url, headers={'User-Agent': 'Mozilla/5.0'})
+                    with urllib.request.urlopen(req, timeout=30) as resp:
+                        img_bytes = resp.read()
+                        image = Image.open(BytesIO(img_bytes))
+                        st.image(image, caption=img_prompt, use_container_width=True)
+                        st.download_button(
+                            label="📥 تحميل الصورة",
+                            data=img_bytes,
+                            file_name="AnasMind_Art.png",
+                            mime="image/png"
