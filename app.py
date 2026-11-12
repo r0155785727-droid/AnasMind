@@ -232,33 +232,67 @@ elif selected_section == "🎨 إنشاء صور":
             st.warning("⚠️ اكتب وصف الصورة أولاً!")
         else:
             with st.spinner("🎨 جاري رسم الصورة..."):
-                try:
-                    response = client.models.generate_content(
-                        model="gemini-2.0-flash-exp-image-generation",
-                        contents=f"Generate a high quality image of: {img_prompt}",
-                        config=types.GenerateContentConfig(
-                            response_modalities=["IMAGE", "TEXT"]
+                image_rendered = False
+
+                # المحاولة الأولى: عبر نموذج Gemini الرسمي للصور
+                for img_model in ["gemini-2.5-flash-image", "gemini-2.0-flash-preview-image-generation"]:
+                    try:
+                        response = client.models.generate_content(
+                            model=img_model,
+                            contents=f"Generate an image of: {img_prompt}",
+                            config=types.GenerateContentConfig(
+                                response_modalities=["IMAGE", "TEXT"]
+                            )
                         )
-                    )
+                        for part in response.candidates.content.parts:
+                            if part.inline_data:
+                                image = Image.open(BytesIO(part.inline_data.data))
+                                st.image(image, caption=img_prompt, use_container_width=True)
 
-                    image_found = False
-                    for part in response.candidates[0].content.parts:
-                        if part.inline_data:
-                            image = Image.open(BytesIO(part.inline_data.data))
+                                buf = BytesIO()
+                                image.save(buf, format="PNG")
+                                st.download_button(
+                                    label="📥 تحميل الصورة",
+                                    data=buf.getvalue(),
+                                    file_name="AnasMind_Art.png",
+                                    mime="image/png"
+                                )
+                                image_rendered = True
+                                break
+                        if image_rendered:
+                            break
+                    except Exception:
+                        continue
+
+                # المحاولة الثانية (البديل المجاني الفوري): إذا كان مفتاح Gemini المجاني لا يدعم الصور
+                if not image_rendered:
+                    import urllib.parse
+                    import urllib.request
+
+                    # ترجمة الوصف للإنجليزية عبر Gemini للحصول على أفضل نتيجة رسم
+                    try:
+                        trans = client.models.generate_content(
+                            model="gemini-3.8-flash",
+                            contents=f"Translate this image prompt to detailed English only without any extra text: {img_prompt}"
+                        )
+                        en_prompt = trans.text.strip()
+                    except Exception:
+                        en_prompt = img_prompt
+
+                    encoded_prompt = urllib.parse.quote(en_prompt)
+                    image_url = f"https://pollinations.ai{encoded_prompt}?width=1024&height=1024&nologo=true"
+
+                    try:
+                        req = urllib.request.Request(image_url, headers={'User-Agent': 'Mozilla/5.0'})
+                        with urllib.request.urlopen(req, timeout=30) as resp:
+                            img_bytes = resp.read()
+                            image = Image.open(BytesIO(img_bytes))
                             st.image(image, caption=img_prompt, use_container_width=True)
-
-                            buf = BytesIO()
-                            image.save(buf, format="PNG")
                             st.download_button(
                                 label="📥 تحميل الصورة",
-                                data=buf.getvalue(),
+                                data=img_bytes,
                                 file_name="AnasMind_Art.png",
                                 mime="image/png"
                             )
-                            image_found = True
-
-                    if not image_found:
-                        st.warning("⚠️ لم يتمكن النموذج من رسم هذا الوصف، جرب كتابة وصف مختلف.")
-
-                except Exception as e:
-                    st.error(f"⚠️ تعذر توليد الصورة حالياً: {e}")
+                    except Exception as e:
+                        st.error(f"⚠️ تعذر إنشاء الصورة حالياً، حاول مرة أخرى: {e}")
