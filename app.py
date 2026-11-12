@@ -75,7 +75,7 @@ with st.sidebar:
                 st.session_state.user_email = email_input.strip()
                 st.rerun()
             else:
-                st.error("ا😶لبريد لا خاطىء للاسف")
+                st.error("😡دخل غيره يا حبيبي")
     else:
         st.success(f"مسجل الدخول بـ:\n**{st.session_state.user_email}**")
         if st.button("تسجيل الخروج 🚪", use_container_width=True):
