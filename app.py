@@ -278,7 +278,7 @@ elif selected_section == "🎨 إنشاء صور":
                         en_prompt = trans.text.strip()
                     except Exception:
                         en_prompt = img_prompt
-
+                    clean_prompt = " ".join(en_prompt.split())
                     encoded_prompt = urllib.parse.quote(en_prompt)
                     image_url = f"https://pollinations.ai{encoded_prompt}?width=1024&height=1024&nologo=true"
 
