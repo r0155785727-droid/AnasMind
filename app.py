@@ -81,7 +81,7 @@ with st.sidebar:
     st.markdown("---")
 
     # الأقسام
-    st.markdown("#### 🧭 الأقسام")
+    st.markdown("#### 🧭 اختر القسم")
     selected_section = st.radio(
         "الأقسام:",
         ["💬 الدردشة", "📚 التعلم", "🎨 إنشاء صور"],
@@ -181,7 +181,7 @@ def run_chat_interface(title, subtitle, system_prompt, placeholder_text):
 
         with st.chat_message("assistant", avatar="logo.png"):
             reply_text = None
-            for model_name in ["gemini-3.8-flash", "gemini-2.5-flash-lite"]:
+            for model_name in ["gemini-2.5-flash", "gemini-2.0-flash"]:
                 try:
                     response = client.models.generate_content(
                         model=model_name,
@@ -235,7 +235,7 @@ elif selected_section == "🎨 إنشاء صور":
             with st.spinner("🎨 جاري رسم الصورة..."):
                 try:
                     trans = client.models.generate_content(
-                        model="gemini-3.8-flash",
+                        model="gemini-2.5-flash",
                         contents=f"Translate this image prompt to detailed English only without any extra text: {img_prompt}"
                     )
                     en_prompt = trans.text.strip()
@@ -257,3 +257,5 @@ elif selected_section == "🎨 إنشاء صور":
                             data=img_bytes,
                             file_name="AnasMind_Art.png",
                             mime="image/png"
+                        )
+                except Exception as e:
