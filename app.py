@@ -111,8 +111,23 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"], avatar=icon):
         st.markdown(message["content"])
 
+# أزرار اقتراحات سريعة تظهر فقط عندما تكون المحادثة فارغة
+quick_prompt = None
+if len(st.session_state.messages) == 0:
+    st.markdown("#### ✨ جرب تسألني عن:")
+    q_col1, q_col2, q_col3 = st.columns(3)
+    with q_col1:
+        if st.button("🚀 من هو مطورك؟", use_container_width=True):
+            quick_prompt = "من هو مطورك وما هي قدراتك؟"
+    with q_col2:
+        if st.button("💡 اقترح فكرة مشروع", use_container_width=True):
+            quick_prompt = "اقترح لي فكرة مشروع برمجي ذكي ومبتكر."
+    with q_col3:
+        if st.button("📝 لخص لي موضوعاً", use_container_width=True):
+            quick_prompt = "اشرح لي الذكاء الاصطناعي ببساطة في 3 نقاط."
+user_input = st.chat_input("ارغي يلا...")
+if prompt := (quick_prompt or user_input):
 
-if prompt := st.chat_input("ارغي يلا..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
