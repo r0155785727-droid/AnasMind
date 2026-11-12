@@ -226,29 +226,39 @@ elif selected_section == "🎨 إنشاء صور":
     st.title("🎨 استوديو إنشاء الصور")
     st.caption("اكتب وصف الصورة التي تتخيلها وسأقوم برسمها لك بالذكاء الاصطناعي")
 
-    img_prompt = st.text_area("وصف الصورة (يفضل كتابة تفاصيل دقيقة):", placeholder="مثال: رائد فضاء يركب حصاناً أبيض على سطح القمر بأسلوب سينمائي واقعي...")
+    img_prompt = st.text_area("وصف الصورة (يفضل كتابة تفاصيل دقيقة):", placeholder="مثال: شخصية أنمي بأسلوب سينمائي وإضاءة زرقاء...")
     if st.button("✨ إنشاء الصورة الآن", use_container_width=True):
         if not img_prompt.strip():
             st.warning("⚠️ اكتب وصف الصورة أولاً!")
         else:
             with st.spinner("🎨 جاري رسم الصورة..."):
                 try:
-                    result = client.models.generate_images(
-                        model="imagen-3.0-generate-002",
-                        prompt=img_prompt,
-                        config=types.GenerateImagesConfig(number_of_images=1)
-                    )
-                    for generated_image in result.generated_images:
-                        image = Image.open(BytesIO(generated_image.image.image_bytes))
-                        st.image(image, caption=img_prompt, use_container_width=True)
-
-                        buf = BytesIO()
-                        image.save(buf, format="PNG")
-                        st.download_button(
-                            label="📥 تحميل الصورة",
-                            data=buf.getvalue(),
-                            file_name="AnasMind_Art.png",
-                            mime="image/png"
+                    response = client.models.generate_content(
+                        model="gemini-2.0-flash-exp-image-generation",
+                        contents=f"Generate a high quality image of: {img_prompt}",
+                        config=types.GenerateContentConfig(
+                            response_modalities=["IMAGE", "TEXT"]
                         )
+                    )
+
+                    image_found = False
+                    for part in response.candidates[0].content.parts:
+                        if part.inline_data:
+                            image = Image.open(BytesIO(part.inline_data.data))
+                            st.image(image, caption=img_prompt, use_container_width=True)
+
+                            buf = BytesIO()
+                            image.save(buf, format="PNG")
+                            st.download_button(
+                                label="📥 تحميل الصورة",
+                                data=buf.getvalue(),
+                                file_name="AnasMind_Art.png",
+                                mime="image/png"
+                            )
+                            image_found = True
+
+                    if not image_found:
+                        st.warning("⚠️ لم يتمكن النموذج من رسم هذا الوصف، جرب كتابة وصف مختلف.")
+
                 except Exception as e:
                     st.error(f"⚠️ تعذر توليد الصورة حالياً: {e}")
