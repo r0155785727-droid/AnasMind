@@ -251,3 +251,4 @@ elif selected_section == "🎨 إنشاء صور":
                             mime="image/png"
                         )
                 except Exception as e:
+                    st.error(f"⚠️ تعذر توليد الصورة حالياً: {e}")
