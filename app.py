@@ -118,7 +118,7 @@ if prompt := st.chat_input("ارغي يلا..."):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        status_box = st.status("⚡ جاري تجهيز الرد بسرعة...", expanded=False)
+        status_box = st.status("استنى يا بابا", expanded=False)
         message_placeholder = st.empty()
         full_response = ""
         
