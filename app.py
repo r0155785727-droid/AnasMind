@@ -1,178 +1,253 @@
+import json
+import os
+import time
+import hashlib
+from io import BytesIO
+from PIL import Image
 import streamlit as st
 from google import genai
 from google.genai import types
 
-st.set_page_config(page_title="AnasMind", page_icon="logo.png", layout="centered")
+# 1. إعدادات الصفحة
+st.set_page_config(
+    page_title="AnasMind Pro",
+    page_icon="logo.png",
+    layout="wide"
+)
+
+# 2. تنسيق CSS احترافي واتجاه عربي (RTL)
 st.markdown("""
 <style>
-.stApp {
-    background: radial-gradient(circle at top, #131c31 0%, #090d16 55%, #05070c 100%) !important;
-    color: #ffffff !important;
-}
-
-[data-testid="stHeader"] {
-    background: rgba(0, 0, 0, 0) !important;
-}
-
-[data-testid="stBottom"] > div {
-    background: transparent !important;
-}
-
-@keyframes ai-glow {
-    0% {
-        border-color: #00d2ff;
-        box-shadow: 0 0 18px rgba(0, 210, 255, 0.8), 0 0 30px rgba(58, 123, 213, 0.4);
+    .stApp {
+        background: linear-gradient(135deg, #090d16 0%, #111827 50%, #0f172a 100%);
+        color: #f8fafc;
     }
-    33% {
-        border-color: #9d50bb;
-        box-shadow: 0 0 18px rgba(157, 80, 187, 0.8), 0 0 30px rgba(110, 72, 170, 0.4);
+    .stChatMessage, .stMarkdown, .stTextInput, .stTextArea {
+        direction: rtl;
+        text-align: right;
     }
-    66% {
-        border-color: #ff007f;
-        box-shadow: 0 0 18px rgba(255, 0, 127, 0.8), 0 0 30px rgba(255, 85, 163, 0.4);
+    [data-testid="stChatInput"] > div:focus-within {
+        border-color: #38bdf8 !important;
+        box-shadow: 0 0 15px rgba(56, 189, 248, 0.3) !important;
     }
-    100% {
-        border-color: #00d2ff;
-        box-shadow: 0 0 18px rgba(0, 210, 255, 0.8), 0 0 30px rgba(58, 123, 213, 0.4);
-    }
-}
-
-[data-testid="stChatInput"] > div {
-    border: 2px solid #00d2ff !important;
-    border-radius: 16px !important;
-    animation: ai-glow 4s infinite linear !important;
-    transition: transform 0.2s ease !important;
-}
-
-[data-testid="stChatInput"] > div:focus-within {
-    animation-duration: 2s !important;
-    transform: scale(1.01) !important;
-}
 </style>
 """, unsafe_allow_html=True)
 
-with st.sidebar:
-    try:
-        st.image("logo.png", width=150)
-    except:
-        st.write("🧠 **AnasMind**")
-    st.markdown("المطور ANAS في خدمتك")
-    st.info("تم تطوير وبرمجة AnasMind بواسطة المطور **أنس إبراهيم**.")
-    if st.button("مسح المحادثة 🗑️"):
-        st.session_state.messages = []
-        st.rerun()
-    st.markdown("---")
+# 3. دوال مساعدة لحفظ المستخدمين والشات القديم بأمان
+USERS_FILE = "users_db.json"
+CHATS_FILE = "chats_db.json"
 
-    if "user_email" not in st.session_state:
-        st.session_state.user_email = ""
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
-    if not st.session_state.user_email:
-        st.subheader("تسجيل الدخول 🔐")
-        email_input = st.text_input("البريد الإلكتروني:", placeholder="name@example.com")
+def load_json(filepath):
+    if os.path.exists(filepath):
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
 
-        if st.button("دخول 🚀", use_container_width=True):
-            if "@" in email_input and "." in email_input:
-                st.session_state.user_email = email_input.strip()
-                st.rerun()
-            else:
-                st.error("😡دخل غيره يا حبيبي")
-    else:
-        st.success(f"مسجل الدخول بـ:\n**{st.session_state.user_email}**")
-        if st.button("🤬لو عايز تخرج دوس ", use_container_width=True):
-            st.session_state.user_email = ""
-            st.session_state.messages = []
-            st.rerun()
+def save_json(filepath, data):
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
-col1, col2 = st.columns([1, 4])
-with col1:
-    try:
-        st.image("logo.png", width=85)
-    except:
-        st.title("🧠")
-with col2:
-    st.title("AnasMind")
-    st.caption("تم التطوير بواسطة: أنس إبراهيم 🚀")
-
-API_KEY = st.secrets["GEMINI_API_KEY"]
-
-SYSTEM_INSTRUCTION = """
-أنت مساعد ذكي متطور اسمك AnasMind، تم تطويرك وبرمجتك بالكامل بواسطة المطور أنس إبراهيم.
-تتحدث باللهجة المصرية بطريقة ذكية، ودودة، ومفيدة جداً، وإجاباتك سريعة ومباشرة.
-إذا سألك أي شخص "من أنت؟" أو "من صنعك؟"، أجب بكل فخر أنك AnasMind وأن مطورك هو أنس إبراهيم.
-"""
-
-client = genai.Client(api_key=API_KEY, http_options={'api_version': 'v1alpha'})
-
+# تهيئة الجلسة
+if "logged_in_user" not in st.session_state:
+    st.session_state.logged_in_user = None
 if "messages" not in st.session_state:
     st.session_state.messages = []
-    # لعرض سجل المحادثة بالأيقونات الجديدة
-for message in st.session_state.messages:
-    icon = "👦" if message["role"] == "user" else "logo.png"
-    with st.chat_message(message["role"], avatar=icon):
-        st.markdown(message["content"])
+if "current_chat_id" not in st.session_state:
+    st.session_state.current_chat_id = str(int(time.time()))
 
-# أزرار اقتراحات سريعة تظهر فقط عندما تكون المحادثة فارغة
-quick_prompt = None
-if len(st.session_state.messages) == 0:
-    st.markdown("#### ✨ جرب تسألني عن:")
-    q_col1, q_col2, q_col3 = st.columns(3)
-    with q_col1:
-        if st.button("🚀 من هو مطورك؟", use_container_width=True):
-            quick_prompt = "من هو مطورك وما هي قدراتك؟"
-    with q_col2:
-        if st.button("💡 اقترح فكرة مشروع", use_container_width=True):
-            quick_prompt = "اقترح لي فكرة مشروع برمجي ذكي ومبتكر."
-    with q_col3:
-        if st.button("📝 لخص لي موضوعاً", use_container_width=True):
-            quick_prompt = "اشرح لي الذكاء الاصطناعي ببساطة في 3 نقاط."
-user_input = st.chat_input("ارغي يلا...")
-if prompt := (quick_prompt or user_input):
+# إعداد Gemini
+API_KEY = st.secrets["GEMINI_API_KEY"]
+client = genai.Client(api_key=API_KEY)
 
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+# ==========================================
+# 4. القائمة الجانبية (تسجيل الدخول + الأقسام + الشات القديم)
+# ==========================================
+with st.sidebar:
+    try:
+        st.image("logo.png", width=130)
+    except Exception:
+        st.title("🧠 AnasMind")
 
-    with st.chat_message("assistant"):
-        status_box = st.status("استنى يا بابا", expanded=False)
-        message_placeholder = st.empty()
-        full_response = ""
-        
-        chat_history = [
-            types.Content(
-                role="user" if m["role"] == "user" else "model",
-                parts=[types.Part.from_text(text=m["content"])]
-            )
-            for m in st.session_state.messages
-        ]
-        
-        models_to_try = ["gemini-3.5-flash-lite", "gemini-3.8-flash"]
-        success = False
-        last_error = ""
-        
-        for model_name in models_to_try:
-            try:
-                response_stream = client.models.generate_content_stream(
-                    model=model_name,
-                    contents=chat_history,
-                    config=types.GenerateContentConfig(
-                        system_instruction=SYSTEM_INSTRUCTION,
+    st.caption("🚀 تطوير: أنس إبراهيم")
+    st.markdown("---")
+
+    # --- خانة 4: تسجيل الدخول بالإيميل والباسورد وحفظهم ---
+    st.subheader("🔐 الحساب")
+    if not st.session_state.logged_in_user:
+        auth_mode = st.radio("اختر:", ["تسجيل الدخول", "إنشاء حساب جديد"], horizontal=True, label_visibility="collapsed")
+        email = st.text_input("البريد الإلكتروني", placeholder="name@example.com")
+        password = st.text_input("كلمة المرور", type="password", placeholder="••••••••")
+
+        if st.button("تأكيد 🚀", use_container_width=True):
+            users = load_json(USERS_FILE)
+            if not email or "@" not in email or len(password) < 4:
+                st.error("⚠️ أدخل إيميلاً صحيحاً وباسورد (4 أحرف على الأقل).")
+            elif auth_mode == "إنشاء حساب جديد":
+                if email in users:
+                    st.warning("⚠️ هذا الإيميل مسجل بالفعل، اختر تسجيل الدخول.")
+                else:
+                    users[email] = hash_password(password)
+                    save_json(USERS_FILE, users)
+                    st.session_state.logged_in_user = email
+                    st.success("✅ تم إنشاء الحساب وتسجيل الدخول!")
+                    st.rerun()
+            else:
+                if email in users and users[email] == hash_password(password):
+                    st.session_state.logged_in_user = email
+                    st.rerun()
+                else:
+                    st.error("❌ الإيميل أو كلمة المرور غير صحيحة.")
+    else:
+        st.success(f"مرحباً: **{st.session_state.logged_in_user}**")
+        if st.button("تسجيل الخروج 🚪", use_container_width=True):
+            st.session_state.logged_in_user = None
+            st.session_state.messages = []
+            st.session_state.current_chat_id = str(int(time.time()))
+            st.rerun()
+
+    st.markdown("---")
+
+    # --- اختيار القسم (1: الدردشة | 2: التعلم | 3: إنشاء صور) ---
+    st.subheader("🧭 الأقسام")
+    selected_section = st.radio(
+        "انتقل إلى:",
+        ["💬 الدردشة", "📚 التعلم", "🎨 إنشاء صور"],
+        label_visibility="collapsed"
+    )
+
+    st.markdown("---")
+
+    # --- خانة 5 و 6: الشات القديم ومسح الشات ---
+    st.subheader("🗂️ إدارة المحادثات")
+    user_key = st.session_state.logged_in_user or "guest"
+    all_chats = load_json(CHATS_FILE)
+    user_chats = all_chats.get(user_key, {})
+
+    if st.button("➕ محادثة جديدة", use_container_width=True):
+        st.session_state.messages = []
+        st.session_state.current_chat_id = str(int(time.time()))
+        st.rerun()
+
+    if user_chats:
+        chat_titles = {cid: cdata["title"] for cid, cdata in user_chats.items()}
+        selected_cid = st.selectbox(
+            "الشات القديم:",
+            options=list(chat_titles.keys()),
+            format_func=lambda x: chat_titles[x],
+            index=None,
+            placeholder="اختر محادثة سابقة..."
+        )
+        if selected_cid and selected_cid != st.session_state.current_chat_id:
+            st.session_state.current_chat_id = selected_cid
+            st.session_state.messages = user_chats[selected_cid]["messages"]
+            st.rerun()
+
+    if st.button("🗑️ مسح الشات الحالي", use_container_width=True):
+        st.session_state.messages = []
+        if st.session_state.current_chat_id in user_chats:
+            del all_chats[user_key][st.session_state.current_chat_id]
+            save_json(CHATS_FILE, all_chats)
+        st.rerun()
+
+# ==========================================
+# دالة مساعدة لتشغيل الدردشة والتعلم بسرعة وبدون أخطاء
+# ==========================================
+def run_chat_interface(title, subtitle, system_prompt, placeholder_text):
+    st.title(title)
+    st.caption(subtitle)
+
+    for msg in st.session_state.messages:
+        icon = "🧑‍💻" if msg["role"] == "user" else "logo.png"
+        with st.chat_message(msg["role"], avatar=icon):
+            st.markdown(msg["content"])
+
+    if prompt := st.chat_input(placeholder_text):
+        with st.chat_message("user", avatar="🧑‍💻"):
+            st.markdown(prompt)
+        st.session_state.messages.append({"role": "user", "content": prompt})
+
+        with st.chat_message("assistant", avatar="logo.png"):
+            reply_text = None
+            for model_name in ["gemini-3.8-flash", "gemini-2.5-flash-lite"]:
+                try:
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=prompt,
+                        config=types.GenerateContentConfig(system_instruction=system_prompt)
                     )
-                )
-                for chunk in response_stream:
-                    if chunk.text:
-                        full_response += chunk.text
-                        message_placeholder.markdown(full_response + "▌")
-                
-                message_placeholder.markdown(full_response)
-                status_box.update(label="✅ تم الرد", state="complete", expanded=False)
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
-                success = True
-                break
-            except Exception as e:
-                last_error = str(e)
-                continue
-        
-        if not success:
-            status_box.update(label="❌ حدث خطأ", state="error", expanded=True)
-            st.error(f"السيرفرات مشغولة حالياً: {last_error}")
-            
+                    reply_text = response.text
+                    break
+                except Exception:
+                    continue
+
+            if reply_text:
+                def word_stream(text):
+                    for w in text.split(" "):
+                        yield w + " "
+                        time.sleep(0.025)
+
+                full_reply = st.write_stream(word_stream(reply_text))
+                st.session_state.messages.append({"role": "assistant", "content": full_reply})
+
+                # حفظ المحادثة تلقائياً في الشات القديم
+                all_c = load_json(CHATS_FILE)
+                if user_key not in all_c:
+                    all_c[user_key] = {}
+                chat_title = st.session_state.messages["content"][:30] + "..."
+                all_c[user_key][st.session_state.current_chat_id] = {
+                    "title": chat_title,
+                    "messages": st.session_state.messages
+                }
+                save_json(CHATS_FILE, all_c)
+            else:
+                st.warning("⚠️ الخادم مزدحم حالياً، جرب إرسال الرسالة مرة أخرى.")
+
+# ==========================================
+# 5. عرض المحتوى حسب القسم المختار
+# ==========================================
+if selected_section == "💬 الدردشة":
+    SYS_CHAT = "أنت AnasMind، مساعد ذكي من تطوير أنس إبراهيم. تتحدث باللهجة المصرية بطريقة ذكية وسريعة ومفيدة."
+    run_chat_interface("💬 دردشة AnasMind", "اسألني في أي موضوع وهجاوبك فوراً", SYS_CHAT, "اكتب رسالتك هنا...")
+
+elif selected_section == "📚 التعلم":
+    SYS_LEARN = """
+    أنت معلم خبير ومساعد تعليمي في منصة AnasMind من تطوير أنس إبراهيم.
+    مهمتك شرح الدروس والمفاهيم بأسلوب مبسط جداً ومنظم في نقاط، مع إعطاء أمثلة عملية وأسئلة اختبار قصيرة في نهاية الشرح للتأكد من فهم الطالب.
+    """
+    run_chat_interface("📚 ركن التعلم الذكي", "اشرح لي درساً، لخص كتاباً، أو اختبرني في مادة", SYS_LEARN, "اكتب اسم الدرس أو الموضوع اللي عايز تتعلمه...")
+
+elif selected_section == "🎨 إنشاء صور":
+    st.title("🎨 استوديو إنشاء الصور")
+    st.caption("اكتب وصف الصورة التي تتخيلها وسأقوم برسمها لك بالذكاء الاصطناعي")
+
+    img_prompt = st.text_area("وصف الصورة (يفضل كتابة تفاصيل دقيقة):", placeholder="مثال: رائد فضاء يركب حصاناً أبيض على سطح القمر بأسلوب سينمائي واقعي...")
+    if st.button("✨ إنشاء الصورة الآن", use_container_width=True):
+        if not img_prompt.strip():
+            st.warning("⚠️ اكتب وصف الصورة أولاً!")
+        else:
+            with st.spinner("🎨 جاري رسم الصورة..."):
+                try:
+                    result = client.models.generate_images(
+                        model="imagen-3.0-generate-002",
+                        prompt=img_prompt,
+                        config=types.GenerateImagesConfig(number_of_images=1)
+                    )
+                    for generated_image in result.generated_images:
+                        image = Image.open(BytesIO(generated_image.image.image_bytes))
+                        st.image(image, caption=img_prompt, use_container_width=True)
+
+                        buf = BytesIO()
+                        image.save(buf, format="PNG")
+                        st.download_button(
+                            label="📥 تحميل الصورة",
+                            data=buf.getvalue(),
+                            file_name="AnasMind_Art.png",
+                            mime="image/png"
+                        )
+                except Exception as e:
