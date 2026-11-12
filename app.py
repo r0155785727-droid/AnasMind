@@ -56,7 +56,7 @@ with st.sidebar:
         st.image("logo.png", width=150)
     except:
         st.write("🧠 **AnasMind**")
-    st.markdown("اعمل زيه يا عبده😝")
+    st.markdown("المطور ANAS في خدمتك")
     st.info("تم تطوير وبرمجة AnasMind بواسطة المطور **أنس إبراهيم**.")
     if st.button("مسح المحادثة 🗑️"):
         st.session_state.messages = []
@@ -75,7 +75,7 @@ with st.sidebar:
                 st.session_state.user_email = email_input.strip()
                 st.rerun()
             else:
-                st.error("⚠️ من فضلك أدخل بريداً إلكترونياً صحيحاً!")
+                st.error("ا😶لبريد لا خاطىء للاسف")
     else:
         st.success(f"مسجل الدخول بـ:\n**{st.session_state.user_email}**")
         if st.button("تسجيل الخروج 🚪", use_container_width=True):
